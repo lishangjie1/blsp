@@ -143,21 +143,13 @@ def main():
 
     # 4. Load tokenizer
     tokenizer = LlamaTokenizer.from_pretrained(model_args.llama_model)
-    extractor = WhisperFeatureExtractor.from_pretrained(model_args.whisper_model)
+    extractor = WhisperFeatureExtractor() #WhisperFeatureExtractor.from_pretrained(model_args.whisper_model)
 
-    ### 5. Load dataset
-    dataset = load_speech_text_paired_dataset(
-        dataroot=data_args.data,
-        manifest_files=data_args.manifest_files,
-        tokenizer=tokenizer,
-        instruction=data_args.instruction
-    )
-
-    # 6. Load pretrained model
+    # 5. Load pretrained model
     #
     # Distributed training:
     # The .from_pretrained methods guarantee that only one local process can concurrently
-    whisper_config = WhisperConfig.from_pretrained(model_args.whisper_model)
+    whisper_config = WhisperConfig()#WhisperConfig.from_pretrained(model_args.whisper_model)
     llama_config = LlamaConfig.from_pretrained(model_args.llama_model)
     blsp_config = BlspConfig(
         whisper_config.to_dict(),
@@ -165,15 +157,31 @@ def main():
     )
 
     model = BlspModel(blsp_config)
-    model.whisper_model = WhisperEncoder.from_pretrained(model_args.whisper_model)
+    model.whisper_model = WhisperEncoder(WhisperConfig())#WhisperEncoder.from_pretrained(model_args.whisper_model)
     model.llama_model = LlamaForCausalLM.from_pretrained(model_args.llama_model, _fast_init=not is_deepspeed_zero3_enabled())
+    # add special token for audio and extend embeddings
+    model.initialize_audio_tokenizer(tokenizer)
+
 
     for name, param in model.whisper_model.named_parameters():
         param.requires_grad = False
     for name, param in model.llama_model.named_parameters():
         param.requires_grad = False
 
-    # 6. Define data collator
+
+    ### 6. Load dataset
+    dataset = load_speech_text_paired_dataset(
+        dataroot=data_args.data,
+        manifest_files=data_args.manifest_files,
+        tokenizer=tokenizer,
+        instruction=data_args.instruction
+    )
+
+    # Define data collator
+    tokenizer.pad_token_id = 0
+    print(f"pad_token_id: {tokenizer.pad_token_id}")
+    print(f"bos_token_id: {tokenizer.bos_token_id}")
+    print(f"eos_token_id: {tokenizer.eos_token_id}")
     data_collator = SpeechTextPairedDataCollator(
         pad_id=tokenizer.pad_token_id,
         sampling_rate=extractor.sampling_rate,
