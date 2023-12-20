@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from transformers import LlamaTokenizer, WhisperFeatureExtractor
 
 ## from llark
-from .llava import conversation as conversation_lib
+from . import conversation as conversation_lib
 from .special_tokens import DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN
 logger = logging.getLogger(__name__)
 
