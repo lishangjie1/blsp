@@ -60,10 +60,19 @@ def main():
     )
     args = parser.parse_args()
 
+    from src.special_tokens import DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN
+    from src import conversation as conversation_lib
+    DEFAULT_CONVERSATION_HEADER = f"{conversation_lib.default_conversation.system}"
+
 
     tokenizer = LlamaTokenizer.from_pretrained(args.blsp_model)
+    if DEFAULT_AUDIO_START_TOKEN not in tokenizer.get_vocab():
+        num_new_tokens = text_tokenizer.add_tokens(
+                [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
+                special_tokens=True,
+            )
     extractor = WhisperFeatureExtractor.from_pretrained(args.blsp_model)
-    model = BlspModel.from_pretrained(args.blsp_model)
+    model = BlspModel.from_pretrained(args.blsp_model) # may need to change vocab_size in config of model manually (e.g., from 32000 to 32002)
 
     generation_config.update(
         **{
@@ -84,8 +93,9 @@ def main():
         for line in tqdm(fin):
             data = json.loads(line.strip())
 
-            instruction = data.get("instruction", args.instruction)
-            input_ids = tokenizer(f"###[Human]:{instruction}", return_tensors="pt").input_ids.cuda()
+            instruction = data.get("question", args.instruction)
+            input_str = f"{DEFAULT_CONVERSATION_HEADER}\n\n###[Human]:{instruction}\n\n" + f"{DEFAULT_AUDIO_START_TOKEN}"
+            input_ids = tokenizer(input_str, return_tensors="pt").input_ids.cuda()
 
             audio = data.get("audio", None)
             speech_values, speech_attention_mask = None, None
@@ -99,9 +109,9 @@ def main():
                 )
                 speech_values = speech_inputs.input_features.cuda()
                 speech_attention_mask = speech_inputs.attention_mask.cuda()
-            
-            suffix_input_ids = tokenizer("\n\n\n###[Assistant]:", return_tensors="pt").input_ids[:,1:].cuda()
-            reference = data.get("reference", "")
+            suffix_input_str = f"{DEFAULT_AUDIO_END_TOKEN}" + "\n\n\n###[Assistant]:"
+            suffix_input_ids = tokenizer(suffix_input_str, return_tensors="pt").input_ids[:,1:].cuda()
+            reference = data.get("answer", "")
 
             output = model.generate(
                 input_ids=input_ids,
@@ -114,6 +124,7 @@ def main():
 
             json_string = json.dumps(
                 {
+                    "input": input_str + f"[audio | {speech.shape}]" + suffix_input_str,
                     "response": response,
                     "reference": reference
                 },
