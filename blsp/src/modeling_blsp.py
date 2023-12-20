@@ -235,3 +235,42 @@ class BlspModel(PreTrainedModel):
             inputs_embeds=inputs_embeds,
             generation_config=generation_config
         )
+
+
+    
+    def initialize_audio_tokenizer(
+        self,
+        tokenizer,
+        mm_use_audio_start_end=True,
+    ):
+        """Set up the tokenizer to handle the various audio tokens."""
+        from .special_tokens import DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN
+
+        # tokenizer.add_tokens([DEFAULT_AUDIO_PATCH_TOKEN], special_tokens=True)
+        # self.resize_token_embeddings(len(tokenizer))
+
+        if mm_use_audio_start_end:
+            num_new_tokens = tokenizer.add_tokens(
+                [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
+                special_tokens=True,
+            )
+            self.llama_model.resize_token_embeddings(len(tokenizer))
+            (
+                self.config.audio_start_token,
+                self.config.audio_end_token,
+            ) = tokenizer.convert_tokens_to_ids(
+                [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN]
+            )
+
+            if num_new_tokens > 0:
+                input_embeddings = self.llama_model.get_input_embeddings().weight.data
+                output_embeddings = self.llama_model.get_output_embeddings().weight.data
+
+                input_embeddings_avg = input_embeddings[:-num_new_tokens].mean(dim=0, keepdim=True)
+                output_embeddings_avg = output_embeddings[:-num_new_tokens].mean(
+                    dim=0, keepdim=True
+                )
+
+                input_embeddings[-num_new_tokens:] = input_embeddings_avg # use the average of other embeddings to initialize audio start and end token embeddings
+                output_embeddings[-num_new_tokens:] = output_embeddings_avg
+
