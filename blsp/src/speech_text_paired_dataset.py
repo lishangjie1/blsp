@@ -2,7 +2,7 @@ import os
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union, BinaryIO
-import fire
+# import fire
 import soundfile as sf
 
 import numpy as np
@@ -13,11 +13,23 @@ from dataclasses import dataclass
 
 from transformers import LlamaTokenizer, WhisperFeatureExtractor
 
+## from llark
+from .llava import conversation as conversation_lib
+from .special_tokens import DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN
 logger = logging.getLogger(__name__)
+
+DEFAULT_CONVERSATION_HEADER = f"{conversation_lib.default_conversation.system}\n\n"
+
 
 
 def process_dataset(batch, tokenizer, instruction):
-    input_ids = tokenizer(f"###[Human]:{instruction}").input_ids
+
+    header = DEFAULT_CONVERSATION_HEADER
+    roles = conversation_lib.default_conversation.roles
+
+    if len(instruction) == 0 and "question" in batch:
+        instruction = batch["question"]
+    input_ids = tokenizer(f"{header}###[{roles[0]}]:{instruction}\n\n" + f"{DEFAULT_AUDIO_START_TOKEN}").input_ids
     attention_mask = [1] * len(input_ids)
     labels = [-100] * len(input_ids)
 
@@ -31,12 +43,12 @@ def process_dataset(batch, tokenizer, instruction):
 
     suffix_input_ids, suffix_attention_mask, suffix_labels = [], [], []
     ### \n\n\n###[Assistant]:
-    new_input_ids = tokenizer("\n\n\n###[Assistant]:").input_ids[1:] # remove bos token
+    new_input_ids = tokenizer(f"{DEFAULT_AUDIO_END_TOKEN}" + f"\n\n\n###[{roles[1]}]:").input_ids[1:] # remove bos token
     suffix_input_ids += new_input_ids
     suffix_attention_mask += [1] * len(new_input_ids)
     suffix_labels += [-100] * len(new_input_ids)
     ### response
-    new_input_ids = tokenizer(batch["text"]).input_ids[1:] + [tokenizer.eos_token_id]
+    new_input_ids = tokenizer(batch["answer"]).input_ids[1:] + [tokenizer.eos_token_id]
     suffix_input_ids += new_input_ids
     suffix_attention_mask += [1] * len(new_input_ids)
     suffix_labels += new_input_ids
@@ -60,10 +72,10 @@ def load_speech_text_paired_dataset(
     instruction="",
     num_proc=8,
 ):
-    if os.path.exists(os.path.join(dataroot, f"processed_{manifest_files}".replace("*", "all"))):
-        logger.warning("load processed dataset")
-        dataset = datasets.load_from_disk(os.path.join(dataroot, f"processed_{manifest_files}".replace("*", "all")))
-        return dataset
+    # if os.path.exists(os.path.join(dataroot, f"processed_{manifest_files}".replace("*", "all"))):
+    #     logger.warning("load processed dataset")
+    #     dataset = datasets.load_from_disk(os.path.join(dataroot, f"processed_{manifest_files}".replace("*", "all")))
+    #     return dataset
     
     logger.warning(f"load dataset from scratch from {dataroot}/{manifest_files}")
     
@@ -256,6 +268,11 @@ def offline_process(
 ):
     text_tokenizer = LlamaTokenizer.from_pretrained(lm_path)
 
+    num_new_tokens = text_tokenizer.add_tokens(
+                [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
+                special_tokens=True,
+            )
+
     dataset = load_speech_text_paired_dataset(
         dataroot,
         manifest_files,
@@ -269,9 +286,25 @@ def offline_process(
         else:
             print(key, dataset[0][key])
     print(len(dataset))
+    return dataset
 
 
 if __name__ == "__main__":
-    fire.Fire({
-        "offline": offline_process,
-    })
+    # fire.Fire({
+    #     "offline": offline_process,
+    # })
+
+    dataroot = "/mnt/nas/users/lsj/music/data"
+    manifest_files = "train.jsonl"
+    lm_path = "/mnt/nas/users/lsj/llm/pretrained_model/llama_7b"
+    instruction = "" # for training dataset, use `question` as `instruction`
+
+    dataset = offline_process(dataroot, manifest_files, lm_path, instruction)
+
+    DataCollator = SpeechTextPairedDataCollator()
+
+    samples = [dataset[i] for i in range(4)]
+
+    batch = DataCollator(samples)
+    
+
