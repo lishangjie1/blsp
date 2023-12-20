@@ -18,7 +18,7 @@ from . import conversation as conversation_lib
 from .special_tokens import DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONVERSATION_HEADER = f"{conversation_lib.default_conversation.system}\n\n"
+DEFAULT_CONVERSATION_HEADER = f"{conversation_lib.default_conversation.system}"
 
 
 
@@ -29,7 +29,7 @@ def process_dataset(batch, tokenizer, instruction):
 
     if len(instruction) == 0 and "question" in batch:
         instruction = batch["question"]
-    input_ids = tokenizer(f"{header}###[{roles[0]}]:{instruction}\n\n" + f"{DEFAULT_AUDIO_START_TOKEN}").input_ids
+    input_ids = tokenizer(f"{header}\n\n###[{roles[0]}]:{instruction}\n\n" + f"{DEFAULT_AUDIO_START_TOKEN}").input_ids
     attention_mask = [1] * len(input_ids)
     labels = [-100] * len(input_ids)
 
