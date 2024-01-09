@@ -14,18 +14,18 @@ from dataclasses import dataclass
 from transformers import LlamaTokenizer, WhisperFeatureExtractor
 
 ## from llark
-from . import conversation as conversation_lib
+from .conversation import default_conversation
 from .special_tokens import DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONVERSATION_HEADER = f"{conversation_lib.default_conversation.system}"
+DEFAULT_CONVERSATION_HEADER = f"{default_conversation.system}"
 
 
 
 def process_dataset(batch, tokenizer, instruction):
 
     header = DEFAULT_CONVERSATION_HEADER
-    roles = conversation_lib.default_conversation.roles
+    roles = default_conversation.roles
 
     if len(instruction) == 0 and "question" in batch:
         instruction = batch["question"]
@@ -35,10 +35,12 @@ def process_dataset(batch, tokenizer, instruction):
 
     audio_path = batch["audio"]
     try:
-        info = sf.info(audio_path)
+        #info = sf.info(audio_path)
         is_readable = True
     except:
         is_readable = False
+
+    
 
 
     suffix_input_ids, suffix_attention_mask, suffix_labels = [], [], []
@@ -53,6 +55,9 @@ def process_dataset(batch, tokenizer, instruction):
     suffix_attention_mask += [1] * len(new_input_ids)
     suffix_labels += new_input_ids
     
+    max_text_length = 150 # prefix~=50 speech_length=63 suffix~=100
+    sample_text_lenth = len(input_ids) + len(suffix_input_ids)
+    resonable_length = True if sample_text_lenth < max_text_length else False
 
     batch["input_ids"] = input_ids
     batch["attention_mask"] = attention_mask
@@ -62,6 +67,7 @@ def process_dataset(batch, tokenizer, instruction):
     batch["suffix_labels"] = suffix_labels
     batch["audio_path"] = audio_path
     batch["is_readable"] = is_readable
+    batch["resonable_length"] = resonable_length
 
     return batch
 
@@ -101,8 +107,19 @@ def load_speech_text_paired_dataset(
     
     dataset = dataset.filter(
         is_readable,
-        input_columns=["is_readable"]
+        input_columns=["is_readable"],
+        load_from_cache_file=False
     )
+
+    def is_resonable_length(flag):
+        return flag
+
+    dataset = dataset.filter(
+        is_resonable_length,
+        input_columns=["resonable_length"],
+        load_from_cache_file=False
+    )
+    
 
     dataset.save_to_disk(os.path.join(dataroot, f"processed_{manifest_files}".replace("*", "all")))
 
@@ -218,9 +235,14 @@ class SpeechTextPairedDataCollator:
     """
     Data collator that will dynamically pad the inputs received.
     """
-    pad_id: int = 0
-    sampling_rate: int = 16000
-    extractor: WhisperFeatureExtractor = WhisperFeatureExtractor()
+    # pad_id: int = 0
+    # sampling_rate: int = 16000
+    # extractor: WhisperFeatureExtractor = WhisperFeatureExtractor()
+    def __init__(self, pad_id, sampling_rate, extractor):
+        self.pad_id = pad_id
+        self.sampling_rate = sampling_rate
+        self.extractor = extractor
+
 
     def __call__(self, samples: List[Dict]):
         input_ids = [sample["input_ids"] for sample in samples]
@@ -240,12 +262,22 @@ class SpeechTextPairedDataCollator:
         raw_speech = [
             get_waveform(sample["audio_path"], output_sample_rate=self.sampling_rate) for sample in samples
         ]
+
         speech_inputs = self.extractor(
             raw_speech, 
             sampling_rate=self.sampling_rate, 
             return_attention_mask=True,
             return_tensors="pt"
         )
+
+        if "input_features" in speech_inputs:
+            speech_values = speech_inputs.input_features
+        elif "input_values" in speech_inputs:
+            speech_values = speech_inputs.input_values
+        else:
+            speech_values = None
+        
+        speech_attention_mask = getattr(speech_inputs, "attention_mask", None)
 
         return {
             "input_ids": input_ids,
@@ -254,8 +286,8 @@ class SpeechTextPairedDataCollator:
             "suffix_input_ids": suffix_input_ids,
             "suffix_attention_mask": suffix_attention_mask,
             "suffix_labels": suffix_labels,
-            "speech_values": speech_inputs.input_features,
-            "speech_attention_mask": speech_inputs.attention_mask
+            "speech_values": speech_values,
+            "speech_attention_mask": speech_attention_mask
         }
 
 
