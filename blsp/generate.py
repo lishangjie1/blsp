@@ -6,14 +6,15 @@ from tqdm import tqdm
 from transformers import LlamaTokenizer, WhisperFeatureExtractor
 from transformers import GenerationConfig
 from src.modeling_blsp import BlspModel
+from src.configuration_blsp import BlspConfig
 from src.speech_text_paired_dataset import get_waveform
-
+from src.ast_feature_extractor import ASTFeatureExtractor
 generation_config = GenerationConfig(
     max_new_tokens=128,
     min_new_tokens=1,
-    do_sample=False,
+    do_sample=True,
     temperature=0.1,
-    top_p=0.75,
+    top_p=0.95,
     num_beams=1,
     num_return_sequences=1,
 )
@@ -32,6 +33,10 @@ def main():
     parser.add_argument(
         "--blsp_model", type=str, default=None,
         help="Path to the blsp model", required=True
+    )
+    parser.add_argument(
+        "--audio_model_type", type=str, default="ast",
+        help="type of the audio model of the blsp model", required=True
     )
     parser.add_argument(
         "--instruction", type=str, default="",
@@ -55,7 +60,7 @@ def main():
         help="temperature for generation"
     )
     parser.add_argument(
-        "--top_p", type=float, default=0.75,
+        "--top_p", type=float, default=0.95,
         help="top_p for generation"
     )
     args = parser.parse_args()
@@ -66,12 +71,25 @@ def main():
 
 
     tokenizer = LlamaTokenizer.from_pretrained(args.blsp_model)
+    if getattr(tokenizer, "pad_token_id", None) is None:
+        tokenizer.pad_token_id = 0 # llama do not have pad_token_id, need to add manually
+    print(f"pad_token_id: {tokenizer.pad_token_id}")
+    print(f"bos_token_id: {tokenizer.bos_token_id}")
+    print(f"eos_token_id: {tokenizer.eos_token_id}")
+
     if DEFAULT_AUDIO_START_TOKEN not in tokenizer.get_vocab():
-        num_new_tokens = text_tokenizer.add_tokens(
+        num_new_tokens = tokenizer.add_tokens(
                 [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
                 special_tokens=True,
             )
-    extractor = WhisperFeatureExtractor.from_pretrained(args.blsp_model)
+    
+    if args.audio_model_type == "whisper":
+        EXTRACTOR_CLASS = WhisperFeatureExtractor
+    elif args.audio_model_type == "ast":
+        EXTRACTOR_CLASS = ASTFeatureExtractor
+    else:
+        raise Exception("Unknown audio model type")
+    extractor = EXTRACTOR_CLASS.from_pretrained(args.blsp_model)
     model = BlspModel.from_pretrained(args.blsp_model) # may need to change vocab_size in config of model manually (e.g., from 32000 to 32002)
 
     generation_config.update(
@@ -86,7 +104,7 @@ def main():
             "eos_token_id": tokenizer.eos_token_id
         }
     )
-
+    print(generation_config)
     model = model.cuda()
     model.eval()
     with open(args.input_file, "r") as fin, open(args.output_file, "w") as fout:
@@ -107,8 +125,17 @@ def main():
                     return_attention_mask=True,
                     return_tensors="pt"
                 )
-                speech_values = speech_inputs.input_features.cuda()
-                speech_attention_mask = speech_inputs.attention_mask.cuda()
+                if "input_features" in speech_inputs:
+                    speech_values = speech_inputs.input_features
+                elif "input_values" in speech_inputs:
+                    speech_values = speech_inputs.input_values
+                else:
+                    raise Exception("No input in speech_inputs")
+                speech_values = speech_values.cuda()
+                speech_attention_mask = getattr(speech_inputs, "attention_mask", None)
+                if speech_attention_mask is not None:
+                    speech_attention_mask = speech_attention_mask.cuda()
+
             suffix_input_str = f"{DEFAULT_AUDIO_END_TOKEN}" + "\n\n\n###[Assistant]:"
             suffix_input_ids = tokenizer(suffix_input_str, return_tensors="pt").input_ids[:,1:].cuda()
             reference = data.get("answer", "")
@@ -124,7 +151,7 @@ def main():
 
             json_string = json.dumps(
                 {
-                    "input": input_str + f"[audio | {speech.shape}]" + suffix_input_str,
+                    "input": input_str + f"[audio | {audio.split('/')[-1]}]" + suffix_input_str,
                     "response": response,
                     "reference": reference
                 },
