@@ -8,6 +8,10 @@ import subprocess
 import time
 import sys
 import soundfile as sf
+# need to download csv or json files:
+# music: music_instruct_short.json musiccaps-public.csv
+# Audio_set: ontology.json as_strong_train.json unbalanced_train_segments.csv
+# Openaqa: openaqa_5.6M.json vggsound.csv
 def _download_audio(x):
     (
         ytid,
