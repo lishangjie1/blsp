@@ -7,14 +7,16 @@ from torch.nn import CrossEntropyLoss
 
 from transformers import PreTrainedModel, LlamaForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithPast
-from transformers import LlamaConfig, WhisperConfig
+from transformers import LlamaConfig, WhisperConfig, ASTConfig
 
 try:
     from .configuration_blsp import BlspConfig
     from .modeling_whisper_encoder import WhisperEncoder
+    from .modeling_ast_encoder import ASTModel
 except:
     from configuration_blsp import BlspConfig
     from modeling_whisper_encoder import WhisperEncoder
+    from modeling_ast_encoder import ASTModel
 
 
 def lengths_to_padding_mask(lens):
@@ -98,17 +100,33 @@ class BlspModel(PreTrainedModel):
 
     def __init__(self, config: BlspConfig):
         super().__init__(config)
-        self.whisper_config = WhisperConfig(**config.whisper_config)
+        
+        if config.audio_model_type == "whisper":
+            AUDIO_MODEL_CONFIG_CLASS = WhisperConfig 
+            AUDIO_ENCODER_CLASS = WhisperEncoder
+        elif config.audio_model_type == "ast":
+            AUDIO_MODEL_CONFIG_CLASS = ASTConfig
+            AUDIO_ENCODER_CLASS = ASTModel
+
+
+
+        self.audio_config = AUDIO_MODEL_CONFIG_CLASS(**config.audio_config)
         self.llama_config = LlamaConfig(**config.llama_config)
 
-        self.whisper_model = WhisperEncoder(self.whisper_config)
+        self.audio_model = AUDIO_ENCODER_CLASS(self.audio_config)
         self.llama_model = LlamaForCausalLM(self.llama_config)
 
-        in_d = self.whisper_config.d_model
+        if config.audio_model_type == "whisper":
+            in_d = self.audio_config.d_model
+        elif config.audio_model_type == "ast":
+            in_d = self.audio_config.hidden_size
+            
         out_d = self.llama_config.hidden_size
+        mid_d = 256 #2 * in_d # 256
+        print(f"in_d: {in_d}, mid_d: {mid_d}, out_d: {out_d}")
         self.subsampler = Conv1dSubsampler(
             in_d,
-            2 * in_d,
+            mid_d,
             out_d,
             [int(k) for k in config.conv_kernel_sizes.split(",")],
         )
@@ -136,7 +154,7 @@ class BlspModel(PreTrainedModel):
         ### 1. forward speech
         speech_embeds, speech_attention_mask = self.get_speech_features(speech_values, speech_attention_mask)
         speech_labels = torch.LongTensor(speech_embeds.size(0), speech_embeds.size(1)).fill_(-100).to(speech_embeds.device)
-
+        
         ### 2. forward llama
         prefix_embeds = self.llama_model.get_input_embeddings()(input_ids)
         suffix_embeds = self.llama_model.get_input_embeddings()(suffix_input_ids)
@@ -144,7 +162,7 @@ class BlspModel(PreTrainedModel):
         inputs_embeds = torch.cat([prefix_embeds, speech_embeds, suffix_embeds], dim=1)
         attention_mask = torch.cat([attention_mask, speech_attention_mask, suffix_attention_mask], dim=1)
         labels = torch.cat([labels, speech_labels, suffix_labels], dim=1)
-
+        #print(f"prefix_shape: {prefix_embeds.shape}, speech_shape: {speech_embeds.shape}, suffix_shape: {suffix_embeds.shape}")
         return self.llama_model(
             inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
@@ -158,7 +176,7 @@ class BlspModel(PreTrainedModel):
             "input_features": speech_values,
             "attention_mask": speech_attention_mask,
         }
-        output = self.whisper_model(**w2v_args)
+        output = self.audio_model(**w2v_args)
         speech_embeds = output.last_hidden_state # B x T x C
         speech_lengths = output.output_lengths
 
@@ -248,7 +266,7 @@ class BlspModel(PreTrainedModel):
 
         # tokenizer.add_tokens([DEFAULT_AUDIO_PATCH_TOKEN], special_tokens=True)
         # self.resize_token_embeddings(len(tokenizer))
-
+        # todo: update vocab_size in model.config
         if mm_use_audio_start_end:
             num_new_tokens = tokenizer.add_tokens(
                 [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
@@ -273,4 +291,7 @@ class BlspModel(PreTrainedModel):
 
                 input_embeddings[-num_new_tokens:] = input_embeddings_avg # use the average of other embeddings to initialize audio start and end token embeddings
                 output_embeddings[-num_new_tokens:] = output_embeddings_avg
+
+                # update vocab_size in model.config
+                self.config.llama_config["vocab_size"] += num_new_tokens
 
