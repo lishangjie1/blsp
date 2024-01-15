@@ -6,17 +6,16 @@ ASR类:
 3. Common voice
 
 # SFT Dataset:
-
-1. Music instruct (https://huggingface.co/datasets/m-a-p/Music-Instruct/tree/main/MusicInstruct)
-2. MusicCaps (https://huggingface.co/datasets/google/MusicCaps/tree/main)
-3. AudioSet
+1. MusicCaps (https://huggingface.co/datasets/google/MusicCaps/tree/main) 来自音乐家手写
+2. Music instruct (https://huggingface.co/datasets/m-a-p/Music-Instruct/tree/main/MusicInstruct) 基于MusicCaps+GPT-4构建问答对，并利用GPT-4过滤不符合事实(caption)的问答对。
+3. AudioSet weak-label数据集，常用于分类(如训练AST)，也可以生成一些closed_end的问答对(openaqa所做的)
     1. Ontology.json (https://github.com/audioset/ontology)
     2. Unbalance_train_segments.csv (https://research.google.com/audioset/download.html)
     3. As_strong_train.csv (https://research.google.com/audioset/download_strong.html)
-4. AudioCaps
+4. AudioCaps 针对audioset中的audio，人工构建的46k的caption数据集
 4. OpenAQA / OpenASQA (https://github.com/YuanGongND/ltu?tab=readme-ov-file#openaqa-ltu-and-openasqa-ltu-as-dataset)
 5. Vggsound (https://github.com/hche11/VGGSound?tab=readme-ov-file)
-6. Llark中使用的music数据集如fma，以及llark中抽取音频节拍、弦的工具
+6. Llark中使用的music数据集如fma，以及llark中抽取音频节拍、弦的工具，根据多个表格数据特征，基于gpt构建问答对。
 
 
 
