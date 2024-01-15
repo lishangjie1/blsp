@@ -77,11 +77,11 @@ def main():
     print(f"bos_token_id: {tokenizer.bos_token_id}")
     print(f"eos_token_id: {tokenizer.eos_token_id}")
 
-    if DEFAULT_AUDIO_START_TOKEN not in tokenizer.get_vocab():
-        num_new_tokens = tokenizer.add_tokens(
-                [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
-                special_tokens=True,
-            )
+    # if DEFAULT_AUDIO_START_TOKEN not in tokenizer.get_vocab():
+    #     num_new_tokens = tokenizer.add_tokens(
+    #             [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
+    #             special_tokens=True,
+    #         )
     
     if args.audio_model_type == "whisper":
         EXTRACTOR_CLASS = WhisperFeatureExtractor
@@ -112,7 +112,7 @@ def main():
             data = json.loads(line.strip())
 
             instruction = data.get("question", args.instruction)
-            input_str = f"{DEFAULT_CONVERSATION_HEADER}\n\n###[Human]:{instruction}\n\n" + f"{DEFAULT_AUDIO_START_TOKEN}"
+            input_str = f"{DEFAULT_CONVERSATION_HEADER}\n\n###[Human]:{instruction}" + f"\n\n###[Audio]"
             input_ids = tokenizer(input_str, return_tensors="pt").input_ids.cuda()
 
             audio = data.get("audio", None)
@@ -136,7 +136,7 @@ def main():
                 if speech_attention_mask is not None:
                     speech_attention_mask = speech_attention_mask.cuda()
 
-            suffix_input_str = f"{DEFAULT_AUDIO_END_TOKEN}" + "\n\n\n###[Assistant]:"
+            suffix_input_str = "\n\n###[Assistant]:"
             suffix_input_ids = tokenizer(suffix_input_str, return_tensors="pt").input_ids[:,1:].cuda()
             reference = data.get("answer", "")
 
