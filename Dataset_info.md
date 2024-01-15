@@ -1,4 +1,11 @@
-# Dataset:
+
+# Pretraining Dataset
+ASR类:
+1. LibriSpeech (http://www.openslr.org/12/)
+2. Gigaspeech
+3. Common voice
+
+# SFT Dataset:
 
 1. Music instruct (https://huggingface.co/datasets/m-a-p/Music-Instruct/tree/main/MusicInstruct)
 2. MusicCaps (https://huggingface.co/datasets/google/MusicCaps/tree/main)
@@ -6,6 +13,7 @@
     1. Ontology.json (https://github.com/audioset/ontology)
     2. Unbalance_train_segments.csv (https://research.google.com/audioset/download.html)
     3. As_strong_train.csv (https://research.google.com/audioset/download_strong.html)
+4. AudioCaps
 4. OpenAQA / OpenASQA (https://github.com/YuanGongND/ltu?tab=readme-ov-file#openaqa-ltu-and-openasqa-ltu-as-dataset)
 5. Vggsound (https://github.com/hche11/VGGSound?tab=readme-ov-file)
 6. Llark中使用的music数据集如fma，以及llark中抽取音频节拍、弦的工具
