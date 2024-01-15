@@ -233,10 +233,11 @@ conv_v1 = Conversation(
     sep_style=SeparatorStyle.SINGLE,
     sep="###",
 )
-
+# A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. If the answer is not specified in the audio clip, you can make some inferences.
+#  If the answer is not specified in the audio clip, you can make some inferences, but don't say \"Not specified in the audio clip\"
 conv_v1_2 = Conversation(
     system="A chat between a curious human and an artificial intelligence assistant. "
-    "The assistant gives helpful, detailed, and polite answers to the human's questions.",
+    "The assistant gives helpful, detailed, and polite answers to the human's questions.", 
     roles=("Human", "Assistant"),
     messages=(
         (
