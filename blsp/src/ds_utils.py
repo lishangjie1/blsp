@@ -10,7 +10,8 @@ def get_train_ds_config(args=None,
                         release_inference_cache=False,
                         pin_parameters=True,
                         tp_gather_partition_size=8,
-                        max_out_tokens=512, monitor_dir=None, steps_per_print=10):
+                        max_out_tokens=512, monitor_dir=None, steps_per_print=10,
+                        gradient_accumulation_steps=1):
 
     device = "cpu" if offload else "none"
     zero_opt_dict = {
@@ -28,8 +29,8 @@ def get_train_ds_config(args=None,
     }
 
     ds_config = {
-        "train_batch_size": GLOBAL_BATCH_SIZE,
-        "train_micro_batch_size_per_gpu": MICRO_BATCH_SIZE,
+        "train_batch_size": "auto",
+        "train_micro_batch_size_per_gpu": "auto",
         "steps_per_print": steps_per_print,
         "zero_optimization": zero_opt_dict,
         "fp16": {
@@ -40,6 +41,7 @@ def get_train_ds_config(args=None,
             "enabled": False
         },
         "gradient_clipping": 1.0,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
         "prescale_gradients": False,
         "wall_clock_breakdown": False,
         "hybrid_engine": {
