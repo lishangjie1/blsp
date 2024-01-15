@@ -294,4 +294,3 @@ class BlspModel(PreTrainedModel):
 
                 # update vocab_size in model.config
                 self.config.llama_config["vocab_size"] += num_new_tokens
-
