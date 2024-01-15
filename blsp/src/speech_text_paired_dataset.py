@@ -29,7 +29,7 @@ def process_dataset(batch, tokenizer, instruction):
 
     if len(instruction) == 0 and "question" in batch:
         instruction = batch["question"]
-    input_ids = tokenizer(f"{header}\n\n###[{roles[0]}]:{instruction}\n\n" + f"{DEFAULT_AUDIO_START_TOKEN}").input_ids
+    input_ids = tokenizer(f"{header}\n\n###[{roles[0]}]:{instruction}" + f"\n\n###[Audio]:").input_ids
     attention_mask = [1] * len(input_ids)
     labels = [-100] * len(input_ids)
 
@@ -45,7 +45,7 @@ def process_dataset(batch, tokenizer, instruction):
 
     suffix_input_ids, suffix_attention_mask, suffix_labels = [], [], []
     ### \n\n\n###[Assistant]:
-    new_input_ids = tokenizer(f"{DEFAULT_AUDIO_END_TOKEN}" + f"\n\n\n###[{roles[1]}]:").input_ids[1:] # remove bos token
+    new_input_ids = tokenizer(f"\n\n###[{roles[1]}]:").input_ids[1:] # remove bos token
     suffix_input_ids += new_input_ids
     suffix_attention_mask += [1] * len(new_input_ids)
     suffix_labels += [-100] * len(new_input_ids)
@@ -55,9 +55,9 @@ def process_dataset(batch, tokenizer, instruction):
     suffix_attention_mask += [1] * len(new_input_ids)
     suffix_labels += new_input_ids
     
-    max_text_length = 150 # prefix~=50 speech_length=63 suffix~=100
-    sample_text_lenth = len(input_ids) + len(suffix_input_ids)
-    resonable_length = True if sample_text_lenth < max_text_length else False
+    max_answer_length = 100
+    answer_length = len(batch["answer"].split())
+    resonable_length = True if answer_length < max_answer_length else False
 
     batch["input_ids"] = input_ids
     batch["attention_mask"] = attention_mask
@@ -98,7 +98,7 @@ def load_speech_text_paired_dataset(
             "instruction": instruction
         },
         remove_columns=raw_dataset.column_names,
-        load_from_cache_file=False,
+        load_from_cache_file=True,
         num_proc=num_proc,
     )
 
@@ -108,7 +108,7 @@ def load_speech_text_paired_dataset(
     dataset = dataset.filter(
         is_readable,
         input_columns=["is_readable"],
-        load_from_cache_file=False
+        load_from_cache_file=True
     )
 
     def is_resonable_length(flag):
@@ -117,7 +117,7 @@ def load_speech_text_paired_dataset(
     dataset = dataset.filter(
         is_resonable_length,
         input_columns=["resonable_length"],
-        load_from_cache_file=False
+        load_from_cache_file=True
     )
     
 
@@ -338,5 +338,3 @@ if __name__ == "__main__":
     samples = [dataset[i] for i in range(4)]
 
     batch = DataCollator(samples)
-    
-
