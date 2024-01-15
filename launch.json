@@ -1,0 +1,54 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            //"module": "torch.distributed.launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            // "args":[
+            //     "--nproc_per_node=2",
+            //     "--use_env",
+            //     "blsp/train_stage2.py",
+            //     "--deepspeed" ,"blsp/config/dp_config_zero1.json",
+            //     "--data", "/mnt/nas/users/lsj/music/blsp/sft_data_openaqa",
+            //     "--output_dir" ,"/mnt/nas/users/lsj/music/models/llama_7b_sft_test",
+            //     "--manifest_files", "train_instruct_closed.json",
+            //     "--instruction", "",
+            //     "--remove_unused_columns", "False",
+            //     "--seed" ,"1",
+            //     "--do_train" ,"True",
+            //     "--bf16",  "False",
+            //     "--fp16", "True",
+            //     "--learning_rate", "5e-5",
+            //     "--weight_decay" ,"0.05",
+            //     "--max_grad_norm", "1.0",
+            //     "--warmup_steps", "100",
+            //     "--per_device_train_batch_size" ,"1",
+            //     "--gradient_accumulation_steps" ,"2",
+            //     "--num_train_epochs" ,"2",
+            //     "--llama_model", "/mnt/nas/users/lsj/llm/pretrained_model/llama_7b",
+            //     "--audio_model", "/mnt/nas/users/lsj/music/models/AST",
+            //     "--disable_tqdm", "True",
+            //     "--logging_steps" ,"1",
+            //     "--save_steps", "10",
+            //     "--save_total_limit", "10",
+            //     "--audio_model_type", "ast"
+            // ]
+            // "args":[
+            //     "--nproc_per_node=1",
+            //     "blsp/interactive.py",
+            //     "--audio_file", "/mnt/nas/users/lsj/music/blsp/11fNNN95_og.wav",
+            //     "--blsp_model", "/mnt/nas/users/lsj/music/models/llama_7b_sft_ast",
+            //     "--deepspeed_config" ,"ds_config_inference.json",
+            //     "--audio_model_type", "ast"
+            // ]
+        }
+    ]
+}
