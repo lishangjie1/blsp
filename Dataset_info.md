@@ -1,4 +1,4 @@
-Dataset:
+# Dataset:
 
 1. Music instruct (https://huggingface.co/datasets/m-a-p/Music-Instruct/tree/main/MusicInstruct)
 2. MusicCaps (https://huggingface.co/datasets/google/MusicCaps/tree/main)
@@ -12,7 +12,8 @@ Dataset:
 
 
 
-llark的一次gpt instruction生成案例：
+# llark的一次gpt instruction生成案例：
+
 You are an expert AI assistant that is knowledgeable about music production, musical structure, music
 history, and music styles, and you are hearing audio of a short clip of music. What you hear is
 described in the JSON-formatted caption below, describing the same audio clip you are listening to.
