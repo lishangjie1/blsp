@@ -233,7 +233,7 @@ def main():
         model.audio_model = AUDIO_ENCODER_CLASS.from_pretrained(model_args.audio_model)
         model.llama_model = LlamaForCausalLM.from_pretrained(model_args.llama_model, _fast_init=not is_deepspeed_zero3_enabled())
         # add special token for audio and extend embeddings
-        model.initialize_audio_tokenizer(tokenizer)
+        # model.initialize_audio_tokenizer(tokenizer)
     else:
         extractor = EXTRACTOR_CLASS.from_pretrained(model_args.blsp_model)
         tokenizer = LlamaTokenizer.from_pretrained(model_args.blsp_model)
@@ -294,6 +294,7 @@ def main():
     from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
     from transformers import get_scheduler
     from src.ds_utils import get_train_ds_config
+    from src.utils import pretty_print
     from deepspeed.utils import log_dist
 
     if local_rank == -1:
@@ -332,13 +333,19 @@ def main():
                                     offload=extra_args.offload,
                                     stage=extra_args.zero_stage,
                                     steps_per_print=training_args.logging_steps,
+                                    gradient_accumulation_steps=training_args.gradient_accumulation_steps
                                     )
-
+    ds_config[
+        'train_micro_batch_size_per_gpu'] = training_args.per_device_train_batch_size
+    ds_config[
+        'train_batch_size'] = training_args.per_device_train_batch_size * torch.distributed.get_world_size(
+    ) * training_args.gradient_accumulation_steps
+    pretty_print(ds_config)
     # optimizer and lr_scheduler are not necessarily specified in the config file.
     model, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
         optimizer=optimizer,
-        args=total_args,
+        args=training_args,
         config=ds_config,
         lr_scheduler=lr_scheduler,
         dist_init_required=True)
@@ -434,6 +441,42 @@ def main():
                     tokenizer.save_pretrained(checkpoint_dir)
                     extractor.save_pretrained(checkpoint_dir)
 
+    # final save
+    checkpoint_dir = training_args.output_dir
+    if model_args.lora_dim > 0:
+        lora_fused_model = convert_lora_to_linear_layer(model)
+        #lora_fused_model.save_checkpoint(training_args.output_dir, ckpt_id, client_state=client_sd)
+
+        state_dict = model.state_dict()
+        for key in list(state_dict.keys()):
+            if "lora" in key:
+                del state_dict[key]
+                continue
+            if key.startswith("module."):
+                new_key = key[7:]
+                state_dict[new_key] = state_dict[key]
+                del state_dict[key]
+
+
+        lora_fused_model.save_pretrained(
+                checkpoint_dir, state_dict=state_dict
+        )
+        model = unfuse_lora_weight_from_linear_layer(lora_fused_model)
+    else:
+        #model.save_checkpoint(training_args.output_dir, ckpt_id, client_state=client_sd)
+        state_dict = model.state_dict()
+        for key in list(state_dict.keys()):
+            if key.startswith("module."):
+                new_key = key[7:]
+                state_dict[new_key] = state_dict[key]
+                del state_dict[key]
+
+        model.save_pretrained(
+                checkpoint_dir, state_dict=state_dict
+        )
+    
+    tokenizer.save_pretrained(checkpoint_dir)
+    extractor.save_pretrained(checkpoint_dir)
 
 
     # # 7. Initialize Trainer
