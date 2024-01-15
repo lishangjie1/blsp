@@ -27,6 +27,10 @@ def main():
         help="Path to the input file", required=True
     )
     parser.add_argument(
+        "--deepspeed_config", type=str, default=None,
+        help="Path to the deepspeed_config"
+    )
+    parser.add_argument(
         "--blsp_model", type=str, default=None,
         help="Path to the blsp model", required=True
     )
@@ -59,6 +63,10 @@ def main():
         "--top_p", type=float, default=0.95,
         help="top_p for generation"
     )
+    parser.add_argument(
+		"--local-rank",
+		type=int,
+	)
     args = parser.parse_args()
 
     from src.special_tokens import DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN
@@ -73,11 +81,11 @@ def main():
     print(f"bos_token_id: {tokenizer.bos_token_id}")
     print(f"eos_token_id: {tokenizer.eos_token_id}")
 
-    if DEFAULT_AUDIO_START_TOKEN not in tokenizer.get_vocab():
-        num_new_tokens = tokenizer.add_tokens(
-                [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
-                special_tokens=True,
-            )
+    # if DEFAULT_AUDIO_START_TOKEN not in tokenizer.get_vocab():
+    #     num_new_tokens = tokenizer.add_tokens(
+    #             [DEFAULT_AUDIO_START_TOKEN, DEFAULT_AUDIO_END_TOKEN],
+    #             special_tokens=True,
+    #         )
     
     if args.audio_model_type == "whisper":
         EXTRACTOR_CLASS = WhisperFeatureExtractor
@@ -86,7 +94,7 @@ def main():
     else:
         raise Exception("Unknown audio model type")
     extractor = EXTRACTOR_CLASS.from_pretrained(args.blsp_model)
-    model = BlspModel.from_pretrained(args.blsp_model,force_download=True) # may need to change vocab_size in config of model manually (e.g., from 32000 to 32002)
+    model = BlspModel.from_pretrained(args.blsp_model) # may need to change vocab_size in config of model manually (e.g., from 32000 to 32002)
 
     generation_config.update(
         **{
@@ -128,11 +136,11 @@ def main():
     while True:
         cnt += 1
         instruction = input(f"Question {cnt}: ").strip()
-        input_str = f"{DEFAULT_CONVERSATION_HEADER}\n\n###[Human]:{instruction}\n\n" + f"{DEFAULT_AUDIO_START_TOKEN}"
+        input_str = f"{DEFAULT_CONVERSATION_HEADER}\n\n###[Human]:{instruction}" + "\n\n###[Audio]"
         input_ids = tokenizer(input_str, return_tensors="pt").input_ids.cuda()
         
-
-        suffix_input_str = f"{DEFAULT_AUDIO_END_TOKEN}" + "\n\n\n###[Assistant]:"
+        # A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.\n\n###[Human]:who are you?\n\n###[Assistant]:
+        suffix_input_str = "\n\n###[Assistant]:" #f"{DEFAULT_AUDIO_END_TOKEN}" + "\n\n\n###[Assistant]:"
         suffix_input_ids = tokenizer(suffix_input_str, return_tensors="pt").input_ids[:,1:].cuda()
 
         output = model.generate(
@@ -143,6 +151,7 @@ def main():
             generation_config=generation_config,
         )
         response = tokenizer.decode(output[0], skip_special_tokens=True)
+        answer = response.split('\n')[0]
         print(f"Response {cnt}: {response}\n")
 
 
