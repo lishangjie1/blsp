@@ -1,10 +1,10 @@
 
 set -e
 
-model_path="/mnt/nas/users/lsj/music/models/llama_7b_sft_ast_lora/epoch0_iter10_loss9.359/"
-pretrain_model_path="/mnt/nas/users/lsj/llm/pretrained_model/llama_7b"
+model_path="/mnt/nas/users/lsj/music/models/llama2_7b_chat_ast_lora/epoch0_iter2500_loss0.938"
+# pretrain_model_path="/mnt/nas/users/lsj/llm/pretrained_model/llama_7b"
 # audio_encoder_path="/mnt/nas/users/lsj/music/models/whisper-large-v2"
-audio_encoder_path="/mnt/nas/users/lsj/music/models/AST"
+# audio_encoder_path="/mnt/nas/users/lsj/music/models/AST"
 # copy tokenizer
 # cp $pretrain_model_path/tokenizer* $model_path/
 # copy preprocessor_config
