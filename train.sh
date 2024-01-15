@@ -1,12 +1,12 @@
 
 
 
-llama_path=/mnt/nas/users/lsj/llm/pretrained_model/llama_7b
+llama_path=/mnt/nas/users/lsj/llm/pretrained_model/Llama-2-7b-chat-hf
 audio_model_path="/mnt/nas/users/lsj/music/models/AST"
 audio_model_type="ast"
 # blsp_path="/mnt/nas/users/lsj/music/models/llama_7b_sft_closed"
 DATA_ROOT=/mnt/nas/users/lsj/music/blsp/sft_data_openaqa
-SAVE_ROOT=/mnt/nas/users/lsj/music/models/llama_7b_sft_ast_lora
+SAVE_ROOT=/mnt/nas/users/lsj/music/models/llama2_7b_chat_ast_lora_s2_max100_only_open
 
 mkdir -p $SAVE_ROOT
 
@@ -20,6 +20,11 @@ echo $RANK
 # MASTER_ADDR=127.0.0.1
 # MASTER_PORT=12346
 
+# stage 1: only train projection (subsampler+adapter, 10M parameters), closed question, lr=5e-4, epoch=2
+# stage 2: all train (audio encoder, projection, lora(lora_dim=8), 105M parameters), all data, lr=2e-4, epoch=2
+
+stage_one_model="/mnt/nas/users/lsj/music/models/llama2_7b_chat_ast_lora_s1"
+
 python -m torch.distributed.launch \
         --nproc_per_node=8 \
         --nnodes=$WORLD_SIZE \
@@ -28,10 +33,9 @@ python -m torch.distributed.launch \
         --master_port=$MASTER_PORT \
         --use_env \
     blsp/train_stage2.py \
-    --deepspeed blsp/config/dp_config_zero1.json \
     --data $DATA_ROOT \
     --output_dir ${SAVE_ROOT} \
-    --manifest_files "train_instruct.json" \
+    --manifest_files "train_instruct_opened.json,train_instruct_asr.json" \
     --instruction "" \
     --remove_unused_columns False \
     --seed 1 \
@@ -39,7 +43,7 @@ python -m torch.distributed.launch \
     --bf16  False \
     --fp16 True \
     \
-    --learning_rate 1e-4 \
+    --learning_rate 2e-4 \
     --lr_scheduler_type cosine \
     --weight_decay 0.05 \
     --max_grad_norm 1.0 \
@@ -59,4 +63,5 @@ python -m torch.distributed.launch \
     --save_steps 2500 \
     --save_total_limit 10 \
     --lora_dim 8 \
-    --offload True 
+    --offload True \
+    --blsp_model "$stage_one_model"
