@@ -17,6 +17,8 @@ ASR类:
 5. Vggsound (https://github.com/hche11/VGGSound?tab=readme-ov-file)
 6. Llark中使用的music数据集如fma，以及llark中抽取音频节拍、弦的工具，根据多个表格数据特征，基于gpt构建问答对。
 
+# 相关研究社区
+Multimodal Art Projection (https://huggingface.co/m-a-p): MUPT, MERT, music2vec 
 
 
 # llark的一次gpt instruction生成案例：
