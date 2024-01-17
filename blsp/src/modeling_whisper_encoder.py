@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import os
 
 import torch
-from transformers import ASTConfig
+from transformers import WhisperConfig
 from transformers.models.whisper.modeling_whisper import WhisperEncoder as HFWhisperEncoder
 from transformers.utils import ModelOutput
 
@@ -22,7 +22,7 @@ class WhisperEncoder(HFWhisperEncoder):
     """
 
     def from_pretrained(model_path):
-        config = ASTConfig.from_pretrained(model_path)
+        config = WhisperConfig.from_pretrained(model_path)
 
         model = WhisperEncoder(config)
         old_state_dict = torch.load(os.path.join(model_path, "pytorch_model.bin"))
