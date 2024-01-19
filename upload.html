@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>文件上传</title>
+  </head>
+  <body>
+    <h1>上传文件</h1>
+    <form action="file_upload" method="post" enctype="multipart/form-data">
+      <input type="file" name="file">
+      <br><br>
+      <input type="submit" value="上传"> {{ prediction_display_area }}
+    </form>
+
+    <div align="center">
+      <h2>大模型Demo</h2>
+      <br>
+      <form action="predict" method="post">
+          <b>问题</b><input type="text" name="housesize" required />
+          <br>
+          <input type="submit" value="回答">
+      </form>
+      <br>
+      {{ prediction_display_area_1 }}
+    </div>
+  </body>
+</html>
