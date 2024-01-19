@@ -16,12 +16,16 @@
       <h2>大模型Demo</h2>
       <br>
       <form action="predict" method="post">
-          <b>问题</b><input type="text" name="housesize" required />
+          <b>问题</b><br>
+          <textarea cols="30" rows="8" name="message"></textarea>
+          <!--<input type="text" name="housesize" required /> -->
           <br>
           <input type="submit" value="回答">
       </form>
       <br>
-      {{ prediction_display_area_1 }}
+      {{ question_area }}
+      <br>
+      {{ answer_area }}
     </div>
   </body>
 </html>
