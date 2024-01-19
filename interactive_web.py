@@ -22,6 +22,7 @@ GLOBAL_MODEL = None
 GLOBAL_EXTRACTOR = None
 GLOBAL_TOKENIZER = None
 recent_audio_file = None
+audio_name = None
 DEFAULT_CONVERSATION_HEADER = None
 def Load_Model():
     global GLOBAL_MODEL, GLOBAL_EXTRACTOR, GLOBAL_TOKENIZER, generation_config, DEFAULT_CONVERSATION_HEADER
@@ -128,13 +129,14 @@ def index():
 
 @app.route('/file_upload', methods=['POST'])
 def file_upload():
-    global recent_audio_file
+    global recent_audio_file, audio_name
     file = request.files.get('file')
     if file:
         save_path = 'uploads/' + file.filename
         file.save(save_path)
         recent_audio_file = save_path
-        return render_template(f'upload.html',prediction_display_area='上传成功')
+        audio_name = file.filename
+        return render_template(f'upload.html',prediction_display_area=f'当前文件: {file.filename}')
     else:
         return render_template(f'upload.html',prediction_display_area='上传失败')
 
@@ -167,8 +169,8 @@ def predict():
 
     # interactive generation
     
-    inputs = [x for x in request.form.values()]
-    question = inputs[0].strip()
+    question = request.form["message"].strip()
+    
     instruction = f"Question: {question}"
     input_str = f"{DEFAULT_CONVERSATION_HEADER}\n\n###[Human]:{instruction}" + "\n\n###[Audio]"
     input_ids = GLOBAL_TOKENIZER(input_str, return_tensors="pt").input_ids.cuda()
@@ -186,7 +188,7 @@ def predict():
     )
     response = GLOBAL_TOKENIZER.decode(output[0], skip_special_tokens=True)
     answer = response.split('\n')[0]
-    return render_template(f'upload.html',prediction_display_area_1='回答：{}'.format(answer))
+    return render_template(f'upload.html',prediction_display_area=f'当前文件: {audio_name}', question_area=f'问题: {question}', answer_area=f'回答: {answer}')
     
 if __name__ == "__main__":
     Load_Model()
